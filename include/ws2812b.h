@@ -34,6 +34,7 @@
 //#define SETPIX_2	// Bit band in a loop
 //#define SETPIX_3	// Like SETPIX_1 but with unrolled loop
 #define SETPIX_4	// Fastest copying using bit-banding
+//#define SETPIX_5	// DRAFT, NOT WORKING YET (asm ubfx/bfi method by evilwombat)
 
 
 // DEBUG OUTPUT

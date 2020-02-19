@@ -12,17 +12,17 @@ void OnProjectLoad (void) {
   //
   // Dialog-generated settings
   //
-  Project.SetDevice ("STM32F103C6 (allow opt. bytes)");
+  Project.SetDevice ("STM32F103C8");
   Project.SetHostIF ("USB", "");
   Project.SetTargetIF ("SWD");
-  Project.SetTIFSpeed ("1 MHz");
+  Project.SetTIFSpeed ("4 MHz");
+  Window.Show ("Source Files");
   Project.AddSvdFile ("Cortex-M3.svd");
-  Project.AddSvdFile ("$(InstallDir)/Config/Peripherals/ARMv7M.svd");
-  Project.AddSvdFile ("STM32F103xx.svd");
+  Project.AddSvdFile ("/opt/SEGGER/ozone/2.52.4/Config/Peripherals/STM32F103xx.svd");
   //
   // User settings
   //
-  File.Open ("/home/hub/Desktop/dev/STM32/WS2812b_with_given/Debug/WS2812b_with_given.elf");
+  File.Open ("build/WS2812B_STM32F103.elf");
 }
 
 /*********************************************************************

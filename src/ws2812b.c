@@ -389,6 +389,8 @@ static void ws2812b_set_pixel(uint8_t row, uint16_t column, uint8_t red, uint8_t
 	uint32_t invBlue = ~blue;
 
 
+
+
 #if defined(SETPIX_1)
 	uint8_t i;
 	uint32_t calcClearRow = ~(0x01<<row);
@@ -537,6 +539,127 @@ static void ws2812b_set_pixel(uint8_t row, uint16_t column, uint8_t red, uint8_t
 
 	*bitBand = (invBlue >> 0);
 	bitBand+=16;
+
+#elif defined(SETPIX_5)
+
+
+/* How many channels (strips) of LEDs we want to control. This must not exceed 16. */
+#define WS2812_NUM_CHANNELS     16
+
+/* If all your channel framebuffers are the same size (ie, if each channel has the same number
+ * of pixels), you can set this to 1 to bypass some error checking. This will speed things up
+ * substantially, potentially allowing you to slow down your CPU and still meet the WS2812
+ * timing requirements. "If unsure, set this to 0".
+ */
+#define WS212_ALL_CHANNELS_SAME_LENGTH  0
+
+/*
+ * We support up to 16 LED channels (that is, up to 16 distinct strips of LEDs.
+ * Channels must be used sequentially, but their GPIOs do not have to be sequential.
+ * Although all the LED strips must be on the same GPIO bank, the channel number does not
+ * necessarily have to match its GPIO number. This is useful if we want fewer than 16 channels,
+ * but we don't want them to start from GPIO 0.
+ *
+ * Change these assignments based on which strip you are wiring to which GPIO.
+ *
+ * To change the GPIO associated with each channel, modify the code below:
+ */
+#define WS2812_CH0_GPIO      0
+#define WS2812_CH1_GPIO      1
+#define WS2812_CH2_GPIO      2
+#define WS2812_CH3_GPIO      3
+#define WS2812_CH4_GPIO      4
+#define WS2812_CH5_GPIO      5
+#define WS2812_CH6_GPIO      6
+#define WS2812_CH7_GPIO      7
+#define WS2812_CH8_GPIO      8
+#define WS2812_CH9_GPIO      9
+#define WS2812_CH10_GPIO    10
+#define WS2812_CH11_GPIO    11
+#define WS2812_CH12_GPIO    12
+#define WS2812_CH13_GPIO    13
+#define WS2812_CH14_GPIO    14
+#define WS2812_CH15_GPIO    15
+
+/*
+ * Unpack the bits of ch_val and pack them into the bit positions of cur0-cur7 that correspond to
+ * the given GPIO number. Later, cur0-cur7 will be DMAed directly to a register within our GPIO
+ * bank.
+ */
+#define UNPACK_CHANNEL(gpio_num)                    \
+    asm volatile (                                  \
+    "ubfx   r0, %[ch_val], #7, #1 \n"               \
+    "bfi    %[cur0], r0,   #" #gpio_num ", 1  \n"   \
+                                                    \
+    "ubfx   r0, %[ch_val], #6, #1 \n"               \
+    "bfi    %[cur1], r0,   #" #gpio_num ", 1  \n"   \
+                                                    \
+    "ubfx   r0, %[ch_val], #5, #1 \n"               \
+    "bfi    %[cur2], r0,   #" #gpio_num ", 1  \n"   \
+                                                    \
+    "ubfx   r0, %[ch_val], #4, #1 \n"               \
+    "bfi    %[cur3], r0,   #" #gpio_num ", 1  \n"   \
+                                                    \
+    "ubfx   r0, %[ch_val], #3, #1 \n"               \
+    "bfi    %[cur4], r0,   #" #gpio_num ", 1  \n"   \
+                                                    \
+    "ubfx   r0, %[ch_val], #2, #1 \n"               \
+    "bfi    %[cur5], r0,   #" #gpio_num ", 1  \n"   \
+                                                    \
+    "ubfx   r0, %[ch_val], #1, #1 \n"               \
+    "bfi    %[cur6], r0,   #" #gpio_num ", 1  \n"   \
+                                                    \
+    "ubfx   r0, %[ch_val], #0, #1 \n"               \
+    "bfi    %[cur7], r0,   #" #gpio_num ", 1  \n"   \
+                                                    \
+    : [cur0]"+r" (cur0),                            \
+        [cur1]"+r" (cur1),                          \
+        [cur2]"+r" (cur2),                          \
+        [cur3]"+r" (cur3),                          \
+        [cur4]"+r" (cur4),                          \
+        [cur5]"+r" (cur5),                          \
+        [cur6]"+r" (cur6),                          \
+        [cur7]"+r" (cur7)                           \
+    : [ch_val]"r" (ch_val)                          \
+    : "r0", "cc");  /* r0 is a temp variable */
+
+
+
+/*
+ * Unpack the bits for one byte of one channel, and pack them into the bit positions of
+ * the cur0 - cur7 variables, corresponding to the GPIO number for that channel.
+ * The 'if' statement will be optimized away by the compiler, depending on how many channels
+ * are actually defined.
+ */
+#define HANDLE_CHANNEL(ch_num, gpio_num)                    \
+    if (ch_num < WS2812_NUM_CHANNELS) {                     \
+        ch_val = 0xaa; /*get_channel_byte(channels + ch_num, pos);*/  \
+        UNPACK_CHANNEL(gpio_num);                           \
+    }
+
+	uint8_t channel = row;
+	uint16_t led_index = column;
+
+	register uint16_t cur0 = 0, cur1 = 0, cur2 = 0, cur3 = 0, cur4 = 0, cur5 = 0, cur6 = 0, cur7 = 0;
+
+    uint8_t ch_val;
+    HANDLE_CHANNEL( 0, WS2812_CH0_GPIO);
+    HANDLE_CHANNEL( 1, WS2812_CH1_GPIO);
+    HANDLE_CHANNEL( 2, WS2812_CH2_GPIO);
+
+
+    /*
+     * Store the repacked bits in our DMA buffer, ready to be sent to the GPIO bit-reset register.
+     * cur0-cur7 represents bits0 - bits7 of all our channels. Each bit within curX is one channel.
+     */
+    ws2812bDmaBitBuffer[0] = cur0;
+    ws2812bDmaBitBuffer[1] = cur1;
+    ws2812bDmaBitBuffer[2] = cur2;
+    ws2812bDmaBitBuffer[3] = cur3;
+    ws2812bDmaBitBuffer[4] = cur4;
+    ws2812bDmaBitBuffer[5] = cur5;
+    ws2812bDmaBitBuffer[6] = cur6;
+    ws2812bDmaBitBuffer[7] = cur7;
 
 #endif
 }
