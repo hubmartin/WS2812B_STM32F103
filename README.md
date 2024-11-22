@@ -5,7 +5,7 @@ This is a memory and CPU efficient implementation of WS2812B library for STM32F1
  * 10 paralel WS2812B outputs @ 72 MHz
  * **16 paralel WS2812B outputs** @ 128 MHz (overlocked)
 
-**See my other repositories for F0 and F3, F4 port where the library and implementation is explained in details.**
+**See my other repositories for L0, F3 and F4 port where the library and implementation is explained in details.**
 
 https://github.com/hubmartin/WS2812B_STM32F4
 https://github.com/hubmartin/WS2812B_STM32F3
